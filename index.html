@@ -526,6 +526,8 @@
               <th>Level</th>
               <th>Region</th>
               <th>Country</th>
+              <th>Airport</th>
+              <th>IATA CASS</th>
               <th aria-label="Open"></th>
             </tr>
           </thead>
@@ -594,8 +596,8 @@
   function updateSyncBadge() {}
   function syncError() {}
 
-  const CACHE_LIST_KEY   = "avcd:list:v2";
-  const CACHE_DETAIL_KEY = (id) => "avcd:detail:v2:" + id;
+  const CACHE_LIST_KEY   = "avcd:list:v3";
+  const CACHE_DETAIL_KEY = (id) => "avcd:detail:v3:" + id;
   const FETCH_TIMEOUT_MS = 8000;
 
   function cacheGet(key) {
@@ -666,6 +668,8 @@
         ${badge()}
         ${cell("w-sm")}
         ${cell("w-md")}
+        ${cell("w-xs")}
+        ${cell("w-xs")}
         <td class="col-caret">›</td>
       </tr>`;
     }
@@ -698,7 +702,7 @@
       LIST_BACKOFF_MS = Math.min((LIST_BACKOFF_MS || 2000) * 2, 60000);
       setTimeout(() => loadList(true), LIST_BACKOFF_MS);
       if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) {
-        $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder">CDM se data nahi mila. Retry ho raha hai…</td></tr>`;
+        $("#rows").innerHTML = `<tr><td colspan="9" class="placeholder">CDM se data nahi mila. Retry ho raha hai…</td></tr>`;
       }
     } finally {
       clearTimeout(slowTimer);
@@ -732,7 +736,7 @@
     const rows = filteredRows();
     const body = $("#rows");
     if (rows.length === 0) {
-      body.innerHTML = `<tr><td colspan="7" class="placeholder">No accounts match your filters.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" class="placeholder">No accounts match your filters.</td></tr>`;
       return;
     }
     body.innerHTML = rows.map(a => `
@@ -743,6 +747,8 @@
         <td><span class="level-badge level-${escapeAttr(a.level || 'Other')}">${escapeHTML(a.level || "—")}</span></td>
         <td>${escapeHTML(a.region || "—")}</td>
         <td class="col-country">${escapeHTML(a.country || "—")}</td>
+        <td class="col-code">${escapeHTML(a.airportCodes || "—")}</td>
+        <td class="col-code">${escapeHTML(a.iataCassCode || "—")}</td>
         <td class="col-caret" aria-hidden="true">›</td>
       </tr>
     `).join("");
@@ -781,7 +787,12 @@
         <div class="section-heading">Trade Profile</div>
         <div class="field-grid">
           ${skField("Trade account type")}${skField("Product code")}${skField("Hierarchy level")}
-          ${skField("Region")}${skField("Parent account")}${skField("Type")}
+          ${skField("Distribution type")}${skField("Region")}${skField("Country")}
+          ${skField("Parent account")}${skField("Type")}
+        </div>
+        <div class="section-heading">Codes & Airports</div>
+        <div class="field-grid">
+          ${skField("Airport codes")}${skField("IATA CASS code")}
         </div>
         <div class="section-heading">Details</div>
         <div class="field-grid">
@@ -856,9 +867,17 @@
           ${field("Trade account type", d.tradeAccountType)}
           ${field("Product code", d.productCode, true)}
           ${field("Hierarchy level", d.hierarchyLevel)}
+          ${field("Distribution type", d.distributionType)}
           ${field("Region", d.region)}
+          ${field("Country", d.country || d.billingCountry)}
           ${field("Parent account", d.parentName)}
           ${field("Type", d.type)}
+        </div>
+
+        <div class="section-heading">Codes & Airports</div>
+        <div class="field-grid">
+          ${field("Airport codes", d.airportCodes, true)}
+          ${field("IATA CASS code", d.iataCassCode, true)}
         </div>
 
         <div class="section-heading">Details</div>
