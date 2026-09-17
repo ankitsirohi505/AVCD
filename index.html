@@ -342,6 +342,31 @@
     100% { background-position: -100% 0; }
   }
 
+  .slow-notice {
+    position: fixed;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 8px 20px rgba(15, 22, 32, 0.08);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font: 500 12px/1.4 var(--font-body);
+    z-index: 210;
+    display: flex; align-items: center; gap: 8px;
+    animation: rise 240ms ease-out;
+  }
+  .slow-notice::before {
+    content: "";
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--warn, #C67300);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes rise { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+
   /* ─── DETAIL VIEW ───────────────────────────────────────── */
   .detail-nav {
     display: flex; align-items: center; gap: 12px;
@@ -569,13 +594,35 @@
   function updateSyncBadge() {}
   function syncError() {}
 
-  const CACHE_KEY = "avcd:list:v1";
-  function cacheGet() {
-    try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }
+  const CACHE_LIST_KEY   = "avcd:list:v2";
+  const CACHE_DETAIL_KEY = (id) => "avcd:detail:v2:" + id;
+  const FETCH_TIMEOUT_MS = 8000;
+
+  function cacheGet(key) {
+    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
     catch (e) { return null; }
   }
-  function cacheSet(list) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), list })); } catch (e) {}
+  function cacheSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), value })); } catch (e) {}
+  }
+
+  const IN_FLIGHT = new Map();
+  async function fetchJSON(url, timeoutMs = FETCH_TIMEOUT_MS) {
+    if (IN_FLIGHT.has(url)) return IN_FLIGHT.get(url);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const p = (async () => {
+      try {
+        const r = await fetch(url, { headers: { Accept: "application/json" }, signal: ctrl.signal });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return await r.json();
+      } finally {
+        clearTimeout(timer);
+        IN_FLIGHT.delete(url);
+      }
+    })();
+    IN_FLIGHT.set(url, p);
+    return p;
   }
 
   function showTopLoader(on) {
@@ -587,6 +634,21 @@
         el.className = "top-loader";
         document.body.appendChild(el);
       }
+    } else if (el) {
+      el.remove();
+    }
+  }
+
+  function showSlowNotice(on, message) {
+    let el = document.getElementById("slowNotice");
+    if (on) {
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "slowNotice";
+        el.className = "slow-notice";
+        document.body.appendChild(el);
+      }
+      el.textContent = message || "CDM se connect hone me time lag raha hai…";
     } else if (el) {
       el.remove();
     }
@@ -610,30 +672,37 @@
     $("#rows").innerHTML = html;
   }
 
+  let LIST_BACKOFF_MS = 0;
   async function loadList(silent = false) {
     if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) renderSkeletonRows();
     showTopLoader(true);
+    const slowTimer = setTimeout(() => showSlowNotice(true), 3500);
     try {
       let data = null;
       if (window.__earlyFetch) {
-        data = await window.__earlyFetch;
+        try { data = await Promise.race([
+          window.__earlyFetch,
+          new Promise((_, rej) => setTimeout(() => rej(new Error("early-fetch timeout")), FETCH_TIMEOUT_MS))
+        ]); } catch (e) { data = null; }
         window.__earlyFetch = null;
       }
-      if (!data) {
-        const r = await fetch(CONFIG.ACCOUNTS_API, { headers: { Accept: "application/json" }, cache: "no-store" });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        data = await r.json();
-      }
+      if (!data) data = await fetchJSON(CONFIG.ACCOUNTS_API);
+      if (!Array.isArray(data)) throw new Error("bad payload");
       ACCOUNTS = data;
       LAST_SYNC_AT = Date.now();
-      cacheSet(ACCOUNTS);
+      LIST_BACKOFF_MS = 0;
+      cacheSet(CACHE_LIST_KEY, ACCOUNTS);
       buildRegionOptions();
       renderTable();
     } catch (e) {
+      LIST_BACKOFF_MS = Math.min((LIST_BACKOFF_MS || 2000) * 2, 60000);
+      setTimeout(() => loadList(true), LIST_BACKOFF_MS);
       if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) {
-        $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder">Couldn't reach CDM. Retry in a moment.</td></tr>`;
+        $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder">CDM se data nahi mila. Retry ho raha hai…</td></tr>`;
       }
     } finally {
+      clearTimeout(slowTimer);
+      showSlowNotice(false);
       showTopLoader(false);
     }
   }
@@ -732,25 +801,37 @@
     CURRENT_DETAIL_ID = id;
     $("#listView").classList.add("hide");
     $("#detailView").classList.remove("hide");
+    const cached = cacheGet(CACHE_DETAIL_KEY(id));
     const stub = (ACCOUNTS || []).find(a => a.id === id) || null;
-    renderDetailSkeleton(stub);
+    if (cached && cached.value) {
+      renderDetail(cached.value);
+    } else {
+      renderDetailSkeleton(stub);
+    }
     showTopLoader(true);
+    const slowTimer = setTimeout(() => showSlowNotice(true), 3500);
     try {
-      const r = await fetch(CONFIG.ACCOUNTS_API + "/" + encodeURIComponent(id), { headers: { Accept: "application/json" }, cache: "no-store" });
-      if (r.status === 404) {
-        $("#detailContent").innerHTML = `<div class="placeholder">Account no longer visible in the public directory.</div>`;
-        return;
-      }
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const d = await r.json();
+      const d = await fetchJSON(CONFIG.ACCOUNTS_API + "/" + encodeURIComponent(id));
       if (CURRENT_DETAIL_ID !== id) return;
       renderDetail(d);
+      cacheSet(CACHE_DETAIL_KEY(id), d);
       LAST_SYNC_AT = Date.now();
       if (DETAIL_TIMER) clearTimeout(DETAIL_TIMER);
       DETAIL_TIMER = setTimeout(() => { if (CURRENT_DETAIL_ID === id) showDetail(id); }, CONFIG.DETAIL_POLL_MS);
     } catch (e) {
-      $("#detailContent").innerHTML = `<div class="placeholder">Couldn't reach CDM. <button class="btn" onclick="showDetail('${escapeAttr(id)}')">Retry</button></div>`;
+      const gotNotFound = String(e && e.message || "").includes("HTTP 404");
+      if (gotNotFound) {
+        $("#detailContent").innerHTML = `<div class="placeholder">Account no longer visible in the public directory.</div>`;
+        return;
+      }
+      if (!cached) {
+        $("#detailContent").innerHTML = `<div class="placeholder">CDM se detail nahi mila. <button class="btn" onclick="showDetail('${escapeAttr(id)}')">Retry</button></div>`;
+      }
+      if (DETAIL_TIMER) clearTimeout(DETAIL_TIMER);
+      DETAIL_TIMER = setTimeout(() => { if (CURRENT_DETAIL_ID === id) showDetail(id); }, 4000);
     } finally {
+      clearTimeout(slowTimer);
+      showSlowNotice(false);
       showTopLoader(false);
     }
   }
@@ -840,14 +921,14 @@
   window.addEventListener("hashchange", handleRoute);
 
   (async () => {
-    const cached = cacheGet();
-    if (cached && Array.isArray(cached.list) && cached.list.length) {
-      ACCOUNTS = cached.list;
+    const cached = cacheGet(CACHE_LIST_KEY);
+    if (cached && Array.isArray(cached.value) && cached.value.length) {
+      ACCOUNTS = cached.value;
       buildRegionOptions();
       renderTable();
     }
     handleRoute();
-    await loadList(!!cached);
+    loadList(!!cached);
     LIST_TIMER = setInterval(() => loadList(true), CONFIG.LIST_POLL_MS);
   })();
 </script>
