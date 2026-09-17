@@ -547,7 +547,7 @@
   async function loadList(silent = false) {
     try {
       if (!silent) $("#rows").innerHTML = `<tr><td colspan="8" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>`;
-      const r = await fetch(CONFIG.ACCOUNTS_API + "?_=" + Date.now(), { headers: { Accept: "application/json" }});
+      const r = await fetch(CONFIG.ACCOUNTS_API, { headers: { Accept: "application/json" }, cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       ACCOUNTS = await r.json();
       LAST_SYNC_AT = Date.now();
@@ -617,7 +617,7 @@
     $("#detailView").classList.remove("hide");
     $("#detailContent").innerHTML = `<div class="placeholder"><div class="spinner"></div>Loading account…</div>`;
     try {
-      const r = await fetch(CONFIG.ACCOUNTS_API + "/" + encodeURIComponent(id) + "?_=" + Date.now(), { headers: { Accept: "application/json" }});
+      const r = await fetch(CONFIG.ACCOUNTS_API + "/" + encodeURIComponent(id), { headers: { Accept: "application/json" }, cache: "no-store" });
       if (r.status === 404) {
         $("#detailContent").innerHTML = `<div class="placeholder">Account no longer visible in the public directory.</div>`;
         return;
