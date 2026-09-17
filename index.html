@@ -6,9 +6,18 @@
 <title>AVCD · Aerolink Cargo Directory</title>
 <meta name="description" content="AVCD — read-only directory of Aerolink Cargo trade accounts, synced from Salesforce CDM.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='19' font-size='18'%3E%F0%9F%97%83%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://orgfarm-e22db378c4-dev-ed.develop.my.salesforce-sites.com" crossorigin>
+<link rel="dns-prefetch" href="https://orgfarm-e22db378c4-dev-ed.develop.my.salesforce-sites.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<script>
+  (function () {
+    try {
+      window.__earlyFetch = fetch("https://orgfarm-e22db378c4-dev-ed.develop.my.salesforce-sites.com/tradecredit/services/apexrest/accounts", { headers: { Accept: "application/json" }, cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
+    } catch (e) {}
+  })();
+</script>
 
 <style>
   :root {
@@ -292,6 +301,47 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Skeleton loading rows */
+  .skel-row td { padding: 14px !important; }
+  .skel-bar {
+    display: block;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #ECEEF3 0%, #F5F7FA 45%, #ECEEF3 90%);
+    background-size: 300% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  .skel-bar.w-lg { width: 78%; }
+  .skel-bar.w-md { width: 60%; }
+  .skel-bar.w-sm { width: 42%; }
+  .skel-bar.w-xs { width: 30%; }
+  .skel-pill {
+    display: inline-block;
+    width: 58px; height: 14px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #ECEEF3 0%, #F5F7FA 45%, #ECEEF3 90%);
+    background-size: 300% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+
+  .top-loader {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent) 40%, var(--accent) 60%, transparent);
+    background-size: 200% 100%;
+    animation: slide 1.2s ease-in-out infinite;
+    z-index: 200;
+  }
+  @keyframes slide {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+
   /* ─── DETAIL VIEW ───────────────────────────────────────── */
   .detail-nav {
     display: flex; align-items: center; gap: 12px;
@@ -455,9 +505,7 @@
               <th aria-label="Open"></th>
             </tr>
           </thead>
-          <tbody id="rows">
-            <tr><td colspan="7" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>
-          </tbody>
+          <tbody id="rows"></tbody>
         </table>
       </div>
     </div>
@@ -522,20 +570,72 @@
   function updateSyncBadge() {}
   function syncError() {}
 
+  const CACHE_KEY = "avcd:list:v1";
+  function cacheGet() {
+    try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
+  }
+  function cacheSet(list) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), list })); } catch (e) {}
+  }
+
+  function showTopLoader(on) {
+    let el = document.getElementById("topLoader");
+    if (on) {
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "topLoader";
+        el.className = "top-loader";
+        document.body.appendChild(el);
+      }
+    } else if (el) {
+      el.remove();
+    }
+  }
+
+  function renderSkeletonRows(count = 8) {
+    const cell = (cls) => `<td><span class="skel-bar ${cls}"></span></td>`;
+    const badge = () => `<td><span class="skel-pill"></span></td>`;
+    let html = "";
+    for (let i = 0; i < count; i++) {
+      html += `<tr class="skel-row" aria-hidden="true">
+        ${cell("w-lg")}
+        ${cell("w-md")}
+        ${cell("w-sm")}
+        ${badge()}
+        ${cell("w-sm")}
+        ${cell("w-md")}
+        <td class="col-caret">›</td>
+      </tr>`;
+    }
+    $("#rows").innerHTML = html;
+  }
+
   async function loadList(silent = false) {
+    if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) renderSkeletonRows();
+    showTopLoader(true);
     try {
-      if (!silent) $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>`;
-      const r = await fetch(CONFIG.ACCOUNTS_API, { headers: { Accept: "application/json" }, cache: "no-store" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      ACCOUNTS = await r.json();
+      let data = null;
+      if (window.__earlyFetch) {
+        data = await window.__earlyFetch;
+        window.__earlyFetch = null;
+      }
+      if (!data) {
+        const r = await fetch(CONFIG.ACCOUNTS_API, { headers: { Accept: "application/json" }, cache: "no-store" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        data = await r.json();
+      }
+      ACCOUNTS = data;
       LAST_SYNC_AT = Date.now();
-      updateSyncBadge();
+      cacheSet(ACCOUNTS);
       buildRegionOptions();
       renderTable();
-      // If we're on a detail view and its record dropped from the list, keep it — the detail poll owns it
     } catch (e) {
-      syncError("Sync failed — retrying");
-      if (!silent) $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder">Couldn't reach CDM. Retry in a moment.</td></tr>`;
+      if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) {
+        $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder">Couldn't reach CDM. Retry in a moment.</td></tr>`;
+      }
+    } finally {
+      showTopLoader(false);
     }
   }
 
@@ -588,11 +688,54 @@
     location.hash = "#/account/" + encodeURIComponent(id);
   }
 
+  function renderDetailSkeleton(stub) {
+    const bar = (cls) => `<span class="skel-bar ${cls}"></span>`;
+    const skField = (label) => `<div class="field">
+      <span class="field-label">${escapeHTML(label)}</span>
+      <span class="field-value">${bar('w-md')}</span>
+    </div>`;
+    const nameHtml = stub && stub.name ? escapeHTML(stub.name) : bar('w-lg');
+    const levelHtml = stub && stub.level
+      ? `<span class="level-badge level-${escapeAttr(stub.level)}">${escapeHTML(stub.level)}</span>`
+      : `<span class="skel-pill"></span>`;
+    $("#detailContent").innerHTML = `
+      <div class="detail-header">
+        <div style="min-width:0; flex:1">
+          <h1>${nameHtml}</h1>
+          <div class="detail-meta">
+            ${levelHtml}
+            <span>·</span>
+            <span class="mono">${escapeHTML(stub && stub.id ? stub.id : '')}</span>
+          </div>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="section-heading">Trade Profile</div>
+        <div class="field-grid">
+          ${skField("Trade account type")}${skField("Product code")}${skField("Hierarchy level")}
+          ${skField("Region")}${skField("Parent account")}${skField("Type")}
+        </div>
+        <div class="section-heading">Details</div>
+        <div class="field-grid">
+          <div class="field wide"><span class="field-label">Offering tagline</span><span class="field-value">${bar('w-lg')}</span></div>
+          <div class="field wide"><span class="field-label">Description</span><span class="field-value">${bar('w-lg')}</span></div>
+        </div>
+        <div class="section-heading">Contact & Address</div>
+        <div class="field-grid">
+          ${skField("Phone")}${skField("Website")}${skField("Street")}${skField("City")}
+          ${skField("State / Region")}${skField("Postal code")}${skField("Country")}
+        </div>
+      </div>
+    `;
+  }
+
   async function showDetail(id) {
     CURRENT_DETAIL_ID = id;
     $("#listView").classList.add("hide");
     $("#detailView").classList.remove("hide");
-    $("#detailContent").innerHTML = `<div class="placeholder"><div class="spinner"></div>Loading account…</div>`;
+    const stub = (ACCOUNTS || []).find(a => a.id === id) || null;
+    renderDetailSkeleton(stub);
+    showTopLoader(true);
     try {
       const r = await fetch(CONFIG.ACCOUNTS_API + "/" + encodeURIComponent(id), { headers: { Accept: "application/json" }, cache: "no-store" });
       if (r.status === 404) {
@@ -601,14 +744,15 @@
       }
       if (!r.ok) throw new Error("HTTP " + r.status);
       const d = await r.json();
+      if (CURRENT_DETAIL_ID !== id) return;
       renderDetail(d);
       LAST_SYNC_AT = Date.now();
-      updateSyncBadge();
       if (DETAIL_TIMER) clearTimeout(DETAIL_TIMER);
       DETAIL_TIMER = setTimeout(() => { if (CURRENT_DETAIL_ID === id) showDetail(id); }, CONFIG.DETAIL_POLL_MS);
     } catch (e) {
-      syncError("Sync failed");
       $("#detailContent").innerHTML = `<div class="placeholder">Couldn't reach CDM. <button class="btn" onclick="showDetail('${escapeAttr(id)}')">Retry</button></div>`;
+    } finally {
+      showTopLoader(false);
     }
   }
   window.showDetail = showDetail;
@@ -696,10 +840,15 @@
   }
   window.addEventListener("hashchange", handleRoute);
 
-  // ─── Boot ────────────────────────────────────────────
   (async () => {
-    await loadList(false);
+    const cached = cacheGet();
+    if (cached && Array.isArray(cached.list) && cached.list.length) {
+      ACCOUNTS = cached.list;
+      buildRegionOptions();
+      renderTable();
+    }
     handleRoute();
+    await loadList(!!cached);
     LIST_TIMER = setInterval(() => loadList(true), CONFIG.LIST_POLL_MS);
   })();
 </script>
