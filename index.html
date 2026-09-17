@@ -414,10 +414,6 @@
       <span class="brand-tag">Trade accounts · synced from CDM</span>
     </div>
   </div>
-  <div class="sync-badge" id="syncBadge" role="status" aria-live="polite">
-    <span class="sync-dot" aria-hidden="true"></span>
-    <span id="syncText">Connecting…</span>
-  </div>
 </header>
 
 <main>
@@ -428,7 +424,6 @@
       <div class="titles">
         <span class="eyebrow">Directory · Read-only</span>
         <h1>Trade Accounts</h1>
-        <p class="lede">Live directory of Aerolink Cargo trade accounts. Data flows one-way from the Customer Data Master (Salesforce CDM) — updates in the master reflect here automatically.</p>
       </div>
     </div>
 
@@ -457,12 +452,11 @@
               <th>Level</th>
               <th>Region</th>
               <th>Country</th>
-              <th>Last synced</th>
               <th aria-label="Open"></th>
             </tr>
           </thead>
           <tbody id="rows">
-            <tr><td colspan="8" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>
+            <tr><td colspan="7" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>
           </tbody>
         </table>
       </div>
@@ -525,28 +519,12 @@
     return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   }
 
-  function updateSyncBadge() {
-    const badge = $("#syncBadge");
-    const text  = $("#syncText");
-    if (!LAST_SYNC_AT) return;
-    const age = Date.now() - LAST_SYNC_AT;
-    text.textContent = "Live · synced " + fmtRelative(LAST_SYNC_AT);
-    badge.classList.toggle("stale", age > CONFIG.STALE_AFTER_MS);
-    badge.classList.remove("error");
-  }
-  setInterval(updateSyncBadge, 5000);
-
-  function syncError(msg) {
-    const badge = $("#syncBadge");
-    const text  = $("#syncText");
-    badge.classList.remove("stale");
-    badge.classList.add("error");
-    text.textContent = msg || "Sync error";
-  }
+  function updateSyncBadge() {}
+  function syncError() {}
 
   async function loadList(silent = false) {
     try {
-      if (!silent) $("#rows").innerHTML = `<tr><td colspan="8" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>`;
+      if (!silent) $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder"><div class="spinner"></div>Loading directory from CDM…</td></tr>`;
       const r = await fetch(CONFIG.ACCOUNTS_API, { headers: { Accept: "application/json" }, cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       ACCOUNTS = await r.json();
@@ -557,7 +535,7 @@
       // If we're on a detail view and its record dropped from the list, keep it — the detail poll owns it
     } catch (e) {
       syncError("Sync failed — retrying");
-      if (!silent) $("#rows").innerHTML = `<tr><td colspan="8" class="placeholder">Couldn't reach CDM. Retry in a moment.</td></tr>`;
+      if (!silent) $("#rows").innerHTML = `<tr><td colspan="7" class="placeholder">Couldn't reach CDM. Retry in a moment.</td></tr>`;
     }
   }
 
@@ -586,7 +564,7 @@
     const rows = filteredRows();
     const body = $("#rows");
     if (rows.length === 0) {
-      body.innerHTML = `<tr><td colspan="8" class="placeholder">No accounts match your filters.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="7" class="placeholder">No accounts match your filters.</td></tr>`;
       return;
     }
     body.innerHTML = rows.map(a => `
@@ -597,7 +575,6 @@
         <td><span class="level-badge level-${escapeAttr(a.level || 'Other')}">${escapeHTML(a.level || "—")}</span></td>
         <td>${escapeHTML(a.region || "—")}</td>
         <td class="col-country">${escapeHTML(a.country || "—")}</td>
-        <td class="col-updated" title="${escapeAttr(fmtDateTime(a.lastModified))}">${escapeHTML(fmtRelative(a.lastModified))}</td>
         <td class="col-caret" aria-hidden="true">›</td>
       </tr>
     `).join("");
@@ -646,13 +623,7 @@
             <span class="level-badge level-${escapeAttr(level)}">${escapeHTML(level)}</span>
             <span>·</span>
             <span class="mono">${escapeHTML(d.id)}</span>
-            <span>·</span>
-            <span>Last synced ${escapeHTML(fmtRelative(d.lastModified))}</span>
           </div>
-        </div>
-        <div class="readonly-tag">
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 7V5a3 3 0 1 1 6 0v2M4 7h8v6H4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Read-only from CDM
         </div>
       </div>
       <div class="detail-body">
@@ -681,13 +652,6 @@
           ${field("State / Region", d.billingState)}
           ${field("Postal code", d.billingPostalCode)}
           ${field("Country", d.billingCountry)}
-        </div>
-
-        <div class="section-heading">Sync Info</div>
-        <div class="field-grid">
-          ${field("Last modified", fmtDateTime(d.lastModified), true)}
-          ${field("Salesforce Id", d.id, true)}
-          ${field("Publicly listed", d.isPublicOffering ? "Yes" : "No")}
         </div>
       </div>
     `;
