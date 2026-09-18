@@ -641,20 +641,7 @@
     }
   }
 
-  function showSlowNotice(on, message) {
-    let el = document.getElementById("slowNotice");
-    if (on) {
-      if (!el) {
-        el = document.createElement("div");
-        el.id = "slowNotice";
-        el.className = "slow-notice";
-        document.body.appendChild(el);
-      }
-      el.textContent = message || "CDM se connect hone me time lag raha hai…";
-    } else if (el) {
-      el.remove();
-    }
-  }
+  function showSlowNotice() { /* disabled — no user-facing slow message */ }
 
   function renderSkeletonRows(count = 8) {
     const cell = (cls) => `<td><span class="skel-bar ${cls}"></span></td>`;
@@ -680,7 +667,6 @@
   async function loadList(silent = false) {
     if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) renderSkeletonRows();
     showTopLoader(true);
-    const slowTimer = setTimeout(() => showSlowNotice(true), 3500);
     try {
       let data = null;
       if (window.__earlyFetch) {
@@ -701,12 +687,10 @@
     } catch (e) {
       LIST_BACKOFF_MS = Math.min((LIST_BACKOFF_MS || 2000) * 2, 60000);
       setTimeout(() => loadList(true), LIST_BACKOFF_MS);
-      if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0)) {
-        $("#rows").innerHTML = `<tr><td colspan="9" class="placeholder">CDM se data nahi mila. Retry ho raha hai…</td></tr>`;
+      if (!silent && (!ACCOUNTS || ACCOUNTS.length === 0) && !document.querySelector("#rows .skel-row")) {
+        renderSkeletonRows();
       }
     } finally {
-      clearTimeout(slowTimer);
-      showSlowNotice(false);
       showTopLoader(false);
     }
   }
@@ -820,7 +804,6 @@
       renderDetailSkeleton(stub);
     }
     showTopLoader(true);
-    const slowTimer = setTimeout(() => showSlowNotice(true), 3500);
     try {
       const d = await fetchJSON(CONFIG.ACCOUNTS_API + "/" + encodeURIComponent(id));
       if (CURRENT_DETAIL_ID !== id) return;
@@ -835,14 +818,12 @@
         $("#detailContent").innerHTML = `<div class="placeholder">Account no longer visible in the public directory.</div>`;
         return;
       }
-      if (!cached) {
-        $("#detailContent").innerHTML = `<div class="placeholder">CDM se detail nahi mila. <button class="btn" onclick="showDetail('${escapeAttr(id)}')">Retry</button></div>`;
+      if (!cached && stub) {
+        renderDetailSkeleton(stub);
       }
       if (DETAIL_TIMER) clearTimeout(DETAIL_TIMER);
       DETAIL_TIMER = setTimeout(() => { if (CURRENT_DETAIL_ID === id) showDetail(id); }, 4000);
     } finally {
-      clearTimeout(slowTimer);
-      showSlowNotice(false);
       showTopLoader(false);
     }
   }
