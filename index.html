@@ -576,8 +576,8 @@
   function updateSyncBadge() {}
   function syncError() {}
 
-  const CACHE_LIST_KEY   = "avcd:list:v3";
-  const CACHE_DETAIL_KEY = (id) => "avcd:detail:v3:" + id;
+  const CACHE_LIST_KEY   = "avcd:list:v4";
+  const CACHE_DETAIL_KEY = (id) => "avcd:detail:v4:" + id;
   const FETCH_TIMEOUT_MS = 20000;
 
   function cacheGet(key) {
@@ -749,9 +749,8 @@
       <div class="detail-body">
         <div class="section-heading">Trade Profile</div>
         <div class="field-grid">
-          ${skField("Trade account type")}${skField("Product code")}${skField("Hierarchy level")}
-          ${skField("Distribution type")}${skField("Region")}${skField("Country")}
-          ${skField("Parent account")}${skField("Type")}
+          ${skField("Trade account type")}${skField("Hierarchy level")}${skField("Region")}
+          ${skField("Country")}${skField("Parent account")}
         </div>
         <div class="section-heading">Codes & Airports</div>
         <div class="field-grid">
@@ -759,13 +758,12 @@
         </div>
         <div class="section-heading">Details</div>
         <div class="field-grid">
-          <div class="field wide"><span class="field-label">Offering tagline</span><span class="field-value">${bar('w-lg')}</span></div>
           <div class="field wide"><span class="field-label">Description</span><span class="field-value">${bar('w-lg')}</span></div>
         </div>
         <div class="section-heading">Contact & Address</div>
         <div class="field-grid">
           ${skField("Phone")}${skField("Website")}${skField("Street")}${skField("City")}
-          ${skField("State / Region")}${skField("Postal code")}${skField("Country")}
+          ${skField("Postal code")}${skField("Country")}
         </div>
       </div>
     `;
@@ -825,13 +823,10 @@
         <div class="section-heading">Trade Profile</div>
         <div class="field-grid">
           ${field("Trade account type", d.tradeAccountType)}
-          ${field("Product code", d.productCode, true)}
           ${field("Hierarchy level", d.hierarchyLevel)}
-          ${field("Distribution type", d.distributionType)}
           ${field("Region", d.region)}
           ${field("Country", d.country || d.billingCountry)}
           ${field("Parent account", d.parentName)}
-          ${field("Type", d.type)}
         </div>
 
         <div class="section-heading">Codes & Airports</div>
@@ -842,7 +837,6 @@
 
         <div class="section-heading">Details</div>
         <div class="field-grid">
-          ${field("Offering tagline", d.offeringTagline, false, true)}
           ${field("Description", d.description, false, true)}
         </div>
 
@@ -852,7 +846,6 @@
           ${field("Website", d.website)}
           ${field("Street", d.billingStreet)}
           ${field("City", d.billingCity)}
-          ${field("State / Region", d.billingState)}
           ${field("Postal code", d.billingPostalCode)}
           ${field("Country", d.billingCountry)}
         </div>
