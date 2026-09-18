@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AVCD · Aerolink Cargo Directory</title>
-<meta name="description" content="AVCD — read-only directory of Aerolink Cargo trade accounts, synced from Salesforce CDM.">
+<title>IAG Cargo · Customer Data Management</title>
+<meta name="description" content="IAG Cargo Customer Data Management — read-only directory of trade accounts, synced from Salesforce CDM.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='19' font-size='18'%3E%F0%9F%97%83%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://orgfarm-e22db378c4-dev-ed.develop.my.salesforce-sites.com" crossorigin>
 <link rel="dns-prefetch" href="https://orgfarm-e22db378c4-dev-ed.develop.my.salesforce-sites.com">
@@ -73,14 +73,14 @@
     min-width: 0;
   }
   .brand-mark {
-    width: 34px; height: 34px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent) 0%, #2E6EBF 100%);
-    color: #fff;
-    display: grid; place-items: center;
-    font: 700 12.5px/1 var(--font-mono);
-    letter-spacing: .06em;
+    height: 34px;
+    display: flex; align-items: center;
     flex-shrink: 0;
+  }
+  .brand-mark svg { height: 32px; width: auto; display: block; }
+  .brand-text {
+    padding-left: 12px;
+    border-left: 1px solid var(--line-strong);
   }
   .brand-text { display: flex; flex-direction: column; min-width: 0; }
   .brand-name {
@@ -458,9 +458,14 @@
 
 <header class="appbar">
   <div class="brand">
-    <div class="brand-mark" aria-hidden="true">AVCD</div>
+    <div class="brand-mark" aria-label="IAG Cargo">
+      <svg viewBox="0 0 172 40" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+        <text x="0" y="32" font-family="Inter, system-ui, sans-serif" font-weight="900" font-size="34" letter-spacing="-1.2" fill="#0F1620">IAG</text>
+        <text x="65" y="32" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="34" letter-spacing="-0.6" fill="#56B7A5">Cargo</text>
+      </svg>
+    </div>
     <div class="brand-text">
-      <span class="brand-name">Aerolink Cargo Directory</span>
+      <span class="brand-name">Customer Data Management</span>
       <span class="brand-tag">Trade accounts · synced from CDM</span>
     </div>
   </div>
@@ -529,7 +534,7 @@
 </main>
 
 <footer class="footprint">
-  AVCD · Aerolink Cargo · Powered by Aerolink CDM
+  IAG Cargo · Customer Data Management · Confidential
 </footer>
 
 <script>
