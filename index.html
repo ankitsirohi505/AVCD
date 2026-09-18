@@ -598,7 +598,7 @@
 
   const CACHE_LIST_KEY   = "avcd:list:v3";
   const CACHE_DETAIL_KEY = (id) => "avcd:detail:v3:" + id;
-  const FETCH_TIMEOUT_MS = 8000;
+  const FETCH_TIMEOUT_MS = 20000;
 
   function cacheGet(key) {
     try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
