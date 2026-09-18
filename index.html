@@ -342,31 +342,6 @@
     100% { background-position: -100% 0; }
   }
 
-  .slow-notice {
-    position: fixed;
-    bottom: 20px; left: 50%;
-    transform: translateX(-50%);
-    background: var(--paper);
-    color: var(--ink-soft);
-    border: 1px solid var(--line-strong);
-    box-shadow: 0 8px 20px rgba(15, 22, 32, 0.08);
-    padding: 8px 16px;
-    border-radius: 999px;
-    font: 500 12px/1.4 var(--font-body);
-    z-index: 210;
-    display: flex; align-items: center; gap: 8px;
-    animation: rise 240ms ease-out;
-  }
-  .slow-notice::before {
-    content: "";
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--warn, #C67300);
-    animation: pulse 1.4s ease-in-out infinite;
-  }
-  @keyframes rise { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
-
   /* ─── DETAIL VIEW ───────────────────────────────────────── */
   .detail-nav {
     display: flex; align-items: center; gap: 12px;
@@ -641,7 +616,6 @@
     }
   }
 
-  function showSlowNotice() { /* disabled — no user-facing slow message */ }
 
   function renderSkeletonRows(count = 8) {
     const cell = (cls) => `<td><span class="skel-bar ${cls}"></span></td>`;
